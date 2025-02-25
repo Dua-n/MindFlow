@@ -15,6 +15,9 @@ export default defineConfig({
     watch: {
       usePolling: true
     },
-    allowedHosts: 'all'
+    allowedHosts: [
+      'all',
+      'ab9c2f98-1b51-476e-ba85-076350e2a334-00-14jmle3v57qdq.kirk.replit.dev'
+    ]
   }
 })
