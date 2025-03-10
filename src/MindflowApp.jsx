@@ -747,7 +747,7 @@ const MindflowApp = () => {
     </div>
   );
 
-  return return (
+  return (
       <div
         className="flex h-screen w-full overflow-hidden"
         style={{ background: colors.background, color: colors.text }}
