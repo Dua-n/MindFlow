@@ -16,10 +16,15 @@ export default defineConfig({
     watch: {
       usePolling: true
     },
-    // This setting will allow all hosts to access your Vite dev server
     cors: true,
     fs: {
       strict: false
-    }
+    },
+    // Explicitly allow your Replit domain
+    allowedHosts: [
+      '234b8f18-e228-4d68-ae82-82cd596e88cb-00-3k9e0w7guewmz.worf.replit.dev',
+      '.replit.dev',
+      'all'
+    ]
   }
 })
