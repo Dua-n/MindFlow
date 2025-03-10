@@ -15,6 +15,11 @@ export default defineConfig({
     },
     watch: {
       usePolling: true
+    },
+    // This setting will allow all hosts to access your Vite dev server
+    cors: true,
+    fs: {
+      strict: false
     }
   }
 })
