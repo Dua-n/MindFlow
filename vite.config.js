@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     https: true,
-    strictPort: true
+    strictPort: true,
     port: 3000,
     hmr: {
       protocol: 'ws',
