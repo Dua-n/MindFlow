@@ -1,10 +1,3 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import MindflowApp from './MindflowApp.jsx'
-import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-	<React.StrictMode>
-		<MindflowApp />
-	</React.StrictMode>
-)
+// This file is deprecated - using main.jsx instead
+console.warn('Using src/main.jsx as the entry point instead of src/index.jsx');

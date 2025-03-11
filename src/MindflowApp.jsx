@@ -425,7 +425,13 @@ const MindflowApp = () => {
   });
   
   // Project tab state
-  const [projectsState, setProjectsState] = useState(projects);
+  const [projectsState, setProjectsState] = useState(
+    // Sort projects by priority (high > medium > low)
+    [...projects].sort((a, b) => {
+      const priorityOrder = { high: 1, medium: 2, low: 3 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+  );
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showProjectDetailModal, setShowProjectDetailModal] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -643,6 +649,39 @@ const MindflowApp = () => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+  
+  // Standardize date format to Month Day, Year
+  const standardizeDate = (dateStr) => {
+    if (!dateStr) return '';
+    
+    // Convert from yyyy-mm-dd format if needed
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-');
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+    
+    // Otherwise, parse and reformat to ensure consistency
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+    } catch (e) {
+      console.error('Error parsing date:', e);
+    }
+    
+    // Return the original if we can't parse it
+    return dateStr;
   };
 
   // Sidebar component
@@ -1155,7 +1194,7 @@ const MindflowApp = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-sm opacity-70">
-                        Deadline: {project.deadline}
+                        Deadline: {standardizeDate(project.deadline)}
                       </div>
                       <button
                         className="px-2 py-1 rounded-lg text-xs"
@@ -1263,7 +1302,13 @@ const MindflowApp = () => {
                               id: Date.now(),
                               progress: 0,
                             };
-                            setProjectsState([...projectsState, projectToAdd]);
+                            // Add the project and maintain sort by priority
+                            const updatedProjects = [...projectsState, projectToAdd];
+                            const sortedProjects = updatedProjects.sort((a, b) => {
+                              const priorityOrder = { high: 1, medium: 2, low: 3 };
+                              return priorityOrder[a.priority] - priorityOrder[b.priority];
+                            });
+                            setProjectsState(sortedProjects);
                             setShowNewProjectModal(false);
                             setNewProject({
                               name: '',
@@ -1382,7 +1427,7 @@ const MindflowApp = () => {
                                   >
                                     <div>
                                       <div className="font-medium">{task.name}</div>
-                                      <div className="text-xs opacity-70">Deadline: {task.deadline}</div>
+                                      <div className="text-xs opacity-70">Deadline: {standardizeDate(task.deadline)}</div>
                                     </div>
                                     <button
                                       className="p-1 rounded-full"
@@ -1556,7 +1601,22 @@ const MindflowApp = () => {
                               id: Date.now(),
                               steps: newTask.steps.filter(step => step.description.trim() !== '')
                             };
-                            setPriorityTasksState([...priorityTasksState, taskToAdd]);
+                            
+                            // Add the task and sort the tasks by project priority
+                            const updatedTasks = [...priorityTasksState, taskToAdd];
+                            
+                            // Sort tasks by the priority of their associated projects
+                            const sortedTasks = updatedTasks.sort((a, b) => {
+                              const projectA = projectsState.find(p => p.id === a.projectId);
+                              const projectB = projectsState.find(p => p.id === b.projectId);
+                              
+                              if (!projectA || !projectB) return 0;
+                              
+                              const priorityOrder = { high: 1, medium: 2, low: 3 };
+                              return priorityOrder[projectA.priority] - priorityOrder[projectB.priority];
+                            });
+                            
+                            setPriorityTasksState(sortedTasks);
                             setShowNewTaskModal(false);
                             setNewTask({
                               name: '',
@@ -1592,10 +1652,10 @@ const MindflowApp = () => {
                     <h3 className="font-semibold">Pomodoro Timer</h3>
                   </div>
                   
-                  <div className="flex-grow flex flex-col items-center justify-center p-8">
-                    <div className="mb-6 flex gap-3">
+                  <div className="flex-grow flex flex-col items-center justify-center p-4">
+                    <div className="mb-4 flex gap-2">
                       <button
-                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'focus' ? 'font-bold' : 'opacity-70'}`}
+                        className={`px-3 py-1 rounded-lg text-xs ${timerMode === 'focus' ? 'font-bold' : 'opacity-70'}`}
                         style={{ 
                           background: timerMode === 'focus' ? colors.buttonBg : 'transparent',
                           color: timerMode === 'focus' ? colors.buttonText : colors.text
@@ -1608,10 +1668,10 @@ const MindflowApp = () => {
                           setTimerIntervalId(null);
                         }}
                       >
-                        Focus (25:00)
+                        Focus
                       </button>
                       <button
-                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'break' ? 'font-bold' : 'opacity-70'}`}
+                        className={`px-3 py-1 rounded-lg text-xs ${timerMode === 'break' ? 'font-bold' : 'opacity-70'}`}
                         style={{ 
                           background: timerMode === 'break' ? colors.buttonBg : 'transparent',
                           color: timerMode === 'break' ? colors.buttonText : colors.text
@@ -1624,21 +1684,45 @@ const MindflowApp = () => {
                           setTimerIntervalId(null);
                         }}
                       >
-                        Break (5:00)
+                        Break
                       </button>
                     </div>
                     
                     <div 
-                      className="text-6xl font-bold mb-8"
+                      className="text-4xl font-bold mb-4"
                       style={{ color: colors.primary }}
                     >
                       {Math.floor(timeRemaining / 60).toString().padStart(2, '0')}:
                       {(timeRemaining % 60).toString().padStart(2, '0')}
                     </div>
                     
-                    <div className="flex gap-3">
+                    {/* Duration presets */}
+                    <div className="mb-4 flex flex-wrap justify-center gap-2">
+                      {[5, 15, 25, 30, 45, 60].map(minutes => (
+                        <button
+                          key={minutes}
+                          className="px-2 py-1 rounded-lg text-xs"
+                          style={{ 
+                            background: timeRemaining === minutes * 60 ? colors.primary : colors.cardHighlight,
+                            color: timeRemaining === minutes * 60 ? colors.buttonText : colors.text
+                          }}
+                          onClick={() => {
+                            setTimeRemaining(minutes * 60);
+                            if (timerActive) {
+                              clearInterval(timerInterval);
+                              setTimerIntervalId(null);
+                              setTimerActive(false);
+                            }
+                          }}
+                        >
+                          {minutes}m
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-2">
                       <button
-                        className="px-8 py-3 rounded-xl text-lg"
+                        className="px-4 py-2 rounded-xl text-sm"
                         style={{ 
                           background: timerActive ? colors.cardHighlight : colors.buttonBg, 
                           color: timerActive ? colors.text : colors.buttonText 
@@ -1680,7 +1764,7 @@ const MindflowApp = () => {
                         {timerActive ? 'Pause' : 'Start'}
                       </button>
                       <button
-                        className="px-4 py-3 rounded-xl text-lg"
+                        className="px-3 py-2 rounded-xl text-sm"
                         style={{ background: colors.cardHighlight }}
                         onClick={() => {
                           // Reset timer
@@ -1716,38 +1800,82 @@ const MindflowApp = () => {
                     style={{ background: colors.cardBg }}
                   >
                     <div 
-                      className="p-4 border-b flex justify-between items-center"
+                      className="p-4 border-b"
                       style={{ borderColor: colors.cardHighlight }}
                     >
-                      <h3 className="font-semibold">Current Task</h3>
-                      <div className="flex gap-2">
-                        <button
-                          className="p-1 rounded-full"
-                          style={{ color: colors.primary }}
-                          onClick={() => {
-                            // Cycle to previous task
-                            const taskIds = priorityTasksState.map(t => t.id);
-                            const currentIndex = taskIds.indexOf(currentFocusTaskId);
-                            const prevIndex = (currentIndex - 1 + taskIds.length) % taskIds.length;
-                            setCurrentFocusTaskId(taskIds[prevIndex]);
-                          }}
-                        >
-                          <ArrowLeft size={18} />
-                        </button>
-                        <button
-                          className="p-1 rounded-full"
-                          style={{ color: colors.primary }}
-                          onClick={() => {
-                            // Cycle to next task
-                            const taskIds = priorityTasksState.map(t => t.id);
-                            const currentIndex = taskIds.indexOf(currentFocusTaskId);
-                            const nextIndex = (currentIndex + 1) % taskIds.length;
-                            setCurrentFocusTaskId(taskIds[nextIndex]);
-                          }}
-                        >
-                          <ArrowRight size={18} />
-                        </button>
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold">Current Task</h3>
+                        <div className="relative group">
+                          <button
+                            className="px-3 py-1 rounded-lg text-sm flex items-center gap-1"
+                            style={{ background: colors.cardHighlight, color: colors.primary }}
+                            onClick={() => {
+                              // Toggle task selector dropdown
+                              document.getElementById('task-selector-dropdown').classList.toggle('hidden');
+                            }}
+                          >
+                            <span>Select Task</span>
+                            <ArrowRight size={16} />
+                          </button>
+                          
+                          {/* Task selector dropdown */}
+                          <div 
+                            id="task-selector-dropdown"
+                            className="absolute right-0 mt-1 z-10 w-64 overflow-hidden rounded-xl shadow-lg hidden"
+                            style={{ background: colors.cardBg }}
+                          >
+                            <div className="p-2 max-h-48 overflow-y-auto">
+                              {priorityTasksState.map(task => {
+                                const project = projectsState.find(p => p.id === task.projectId);
+                                return (
+                                  <button
+                                    key={task.id}
+                                    className="w-full text-left p-2 rounded-lg mb-1 flex items-center gap-2"
+                                    style={{ 
+                                      background: task.id === currentFocusTaskId ? colors.cardHighlight : 'transparent',
+                                      fontWeight: task.id === currentFocusTaskId ? 'bold' : 'normal'
+                                    }}
+                                    onClick={() => {
+                                      setCurrentFocusTaskId(task.id);
+                                      document.getElementById('task-selector-dropdown').classList.add('hidden');
+                                    }}
+                                  >
+                                    <span 
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                      style={{ background: project ? project.color : colors.primary }}
+                                    />
+                                    <span className="truncate">{task.name}</span>
+                                  </button>
+                                );
+                              })}
+                              
+                              {priorityTasksState.length === 0 && (
+                                <div className="p-2 text-center text-sm opacity-70">
+                                  No tasks available
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Current task info */}
+                      {(() => {
+                        const currentTask = priorityTasksState.find(task => task.id === currentFocusTaskId);
+                        if (currentTask) {
+                          const project = projectsState.find(p => p.id === currentTask.projectId);
+                          return (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span 
+                                className="w-3 h-3 rounded-full"
+                                style={{ background: project ? project.color : colors.primary }}
+                              />
+                              <span className="truncate text-sm">{currentTask.name}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     
                     {(() => {
@@ -1776,7 +1904,7 @@ const MindflowApp = () => {
                               <span>{project ? project.name : 'Unknown Project'}</span>
                             </div>
                             <div className="text-sm opacity-70">
-                              Deadline: {currentTask.deadline}
+                              Deadline: {standardizeDate(currentTask.deadline)}
                             </div>
                           </div>
                           
@@ -2023,7 +2151,7 @@ const MindflowApp = () => {
                         <div className={task.completed ? 'line-through opacity-50' : ''}>
                           <div className="font-medium">{task.description}</div>
                           <div className="text-sm opacity-70">
-                            Due: {task.deadline}
+                            Due: {standardizeDate(task.deadline)}
                           </div>
                         </div>
                       </div>
