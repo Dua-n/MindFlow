@@ -6,8 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    port: 3000,
     strictPort: true,
+    port: 3000,
+    hmr: {
+      clientPort: 443,
+      path: 'ws',
+      host: '0.0.0.0'
+    },
     watch: {
       usePolling: true
     },
@@ -15,14 +20,10 @@ export default defineConfig({
     fs: {
       strict: false
     },
-    hmr: {
-      clientPort: 443
-    },
-    // Explicitly allow all hosts including your specific Replit domain
+    // Explicitly allow your Replit domain
     allowedHosts: [
-      '234b8f18-e228-4d68-ae82-82cd596e88cb-00-3k9e0w7guewmz.worf.replit.dev', 
-      '*.replit.dev',
-      '*.worf.replit.dev',
+      '234b8f18-e228-4d68-ae82-82cd596e88cb-00-3k9e0w7guewmz.worf.replit.dev',
+      '.replit.dev',
       'all'
     ]
   }
