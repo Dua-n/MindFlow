@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   ArrowRight,
 } from "lucide-react";
-
+// Journal Entries
 const initialJournalEntries = {
   "2025-02-25": [
     {
