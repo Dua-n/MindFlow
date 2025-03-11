@@ -18,7 +18,12 @@ export default defineConfig({
     hmr: {
       clientPort: 443
     },
-    // Allow all hosts including Replit domains
-    allowedHosts: 'all'
+    // Explicitly allow all hosts including your specific Replit domain
+    allowedHosts: [
+      '234b8f18-e228-4d68-ae82-82cd596e88cb-00-3k9e0w7guewmz.worf.replit.dev', 
+      '*.replit.dev',
+      '*.worf.replit.dev',
+      'all'
+    ]
   }
 })
