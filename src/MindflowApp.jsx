@@ -404,6 +404,7 @@ const MindflowApp = () => {
   const [currentJournalDate, setCurrentJournalDate] = useState(new Date());
   const [newEntry, setNewEntry] = useState("");
   const [reflectionContent, setReflectionContent] = useState("");
+  const [reflectionSaved, setReflectionSaved] = useState([]);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [currentFocusTaskId, setCurrentFocusTaskId] = useState(1);
   const [journalEntriesState, setJournalEntriesState] = useState(
@@ -412,6 +413,56 @@ const MindflowApp = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [journalAnalysisState, setJournalAnalysisState] = useState(journalAnalysis);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [monthlyWrapUps, setMonthlyWrapUps] = useState({
+    "2025-02-28": {
+      themes: ["Exhibition planning", "Website development", "Time management"],
+      insights: "February showed consistent focus on the exhibition project, with some anxiety about deadlines. The website redesign gained momentum mid-month. Several opportunities for collaboration emerged.",
+      progress: 65,
+      blockers: ["Grant application process", "Limited studio space"],
+      recommendations: ["Schedule dedicated time for grant writing", "Consider temporary expanded workspace options"]
+    }
+  });
+  
+  // Project tab state
+  const [projectsState, setProjectsState] = useState(projects);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [showProjectDetailModal, setShowProjectDetailModal] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [editProjectProgress, setEditProjectProgress] = useState(0);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    priority: 'medium',
+    deadline: '',
+    color: '#D4A373'
+  });
+  
+  // Task state
+  const [priorityTasksState, setPriorityTasksState] = useState(priorityTasks);
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [newTask, setNewTask] = useState({
+    name: '',
+    projectId: 1,
+    deadline: '',
+    steps: [{ id: Date.now(), description: '', completed: false }]
+  });
+  
+  // Focus timer state
+  const [timerActive, setTimerActive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(25 * 60); // 25 minutes in seconds
+  const [timerMode, setTimerMode] = useState('focus'); // 'focus' or 'break'
+  const [timerInterval, setTimerIntervalId] = useState(null);
+  
+  // Admin tasks state
+  const [adminTasksState, setAdminTasksState] = useState(adminTasks);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [showNewAdminTaskModal, setShowNewAdminTaskModal] = useState(false);
+  const [newAdminTask, setNewAdminTask] = useState({
+    description: '',
+    deadline: '',
+    completed: false
+  });
 
   // Memoize colors based on dark mode
   const colors = useMemo(() => {
@@ -883,6 +934,7 @@ const MindflowApp = () => {
                     className="ml-2 p-1 rounded-full"
                     style={{ color: colors.primary }}
                     title="View Analysis"
+                    onClick={() => setShowAnalysisModal(true)}
                   >
                     <CustomIcon type="analysis" />
                   </button>
@@ -1038,12 +1090,23 @@ const MindflowApp = () => {
 
           {activeTab === "projects" && (
             <div className="h-full flex flex-col overflow-hidden">
-              <h2 className="text-xl font-bold mb-4">Projects</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Projects</h2>
+                <button
+                  className="px-3 py-1 rounded-lg text-sm flex items-center gap-1"
+                  style={{ background: colors.buttonBg, color: colors.buttonText }}
+                  onClick={() => setShowNewProjectModal(true)}
+                >
+                  <CustomIcon type="add" />
+                  <span>New Project</span>
+                </button>
+              </div>
+              
               <div 
                 className="flex-grow overflow-y-auto space-y-4 p-4 rounded-2xl shadow-md"
                 style={{ background: colors.cardBg }}
               >
-                {projects.map(project => (
+                {projectsState.map(project => (
                   <div 
                     key={project.id} 
                     className="p-4 rounded-xl"
@@ -1051,15 +1114,27 @@ const MindflowApp = () => {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="font-semibold">{project.name}</h3>
-                      <span 
-                        className="px-2 py-1 rounded-full text-xs"
-                        style={{ 
-                          background: project.color, 
-                          color: colors.text 
-                        }}
-                      >
-                        {project.priority}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="px-2 py-1 rounded-full text-xs"
+                          style={{ 
+                            background: project.color, 
+                            color: colors.text 
+                          }}
+                        >
+                          {project.priority}
+                        </span>
+                        <button
+                          className="p-1 rounded-full"
+                          style={{ color: colors.primary }}
+                          onClick={() => {
+                            setSelectedProjectId(project.id);
+                            setShowProjectDetailModal(true);
+                          }}
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                      </div>
                     </div>
                     <div className="mb-2">
                       <div 
@@ -1078,122 +1153,1127 @@ const MindflowApp = () => {
                         />
                       </div>
                     </div>
-                    <div className="text-sm opacity-70">
-                      Deadline: {project.deadline}
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm opacity-70">
+                        Deadline: {project.deadline}
+                      </div>
+                      <button
+                        className="px-2 py-1 rounded-lg text-xs"
+                        style={{ background: colors.primary, color: colors.buttonText }}
+                        onClick={() => {
+                          // Add a task for this project
+                          setSelectedProjectId(project.id);
+                          setShowNewTaskModal(true);
+                        }}
+                      >
+                        Add Task
+                      </button>
                     </div>
                   </div>
                 ))}
+                
+                {projectsState.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-40 text-center opacity-70">
+                    <CustomIcon type="projects" />
+                    <p className="mt-2">No projects yet.</p>
+                    <p className="text-sm mt-1">Add your first project to get started.</p>
+                  </div>
+                )}
               </div>
+              
+              {/* New Project Modal */}
+              {showNewProjectModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div 
+                    className="rounded-2xl shadow-lg max-w-md w-full overflow-hidden flex flex-col"
+                    style={{ background: colors.cardBg, color: colors.text }}
+                  >
+                    <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: colors.cardHighlight }}>
+                      <h2 className="font-bold text-lg">New Project</h2>
+                      <button onClick={() => setShowNewProjectModal(false)}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Project Name</label>
+                        <input
+                          type="text"
+                          value={newProject.name}
+                          onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Priority</label>
+                        <select
+                          value={newProject.priority}
+                          onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        >
+                          <option value="high">High</option>
+                          <option value="medium">Medium</option>
+                          <option value="low">Low</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Deadline</label>
+                        <input
+                          type="date"
+                          value={newProject.deadline}
+                          onChange={(e) => setNewProject({...newProject, deadline: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Color</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {['#D4A373', '#E9C46A', '#CCD5AE', '#76B947', '#43AA8B', '#4D908E', '#577590'].map(color => (
+                            <button
+                              key={color}
+                              className={`w-8 h-8 rounded-full ${newProject.color === color ? 'ring-2 ring-offset-2' : ''}`}
+                              style={{ background: color, ringColor: colors.text }}
+                              onClick={() => setNewProject({...newProject, color: color})}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border-t" style={{ borderColor: colors.cardHighlight }}>
+                      <button
+                        className="w-full py-2 rounded-xl"
+                        style={{ 
+                          background: colors.buttonBg, 
+                          color: colors.buttonText,
+                          opacity: !newProject.name ? 0.5 : 1 
+                        }}
+                        disabled={!newProject.name}
+                        onClick={() => {
+                          if (newProject.name) {
+                            const projectToAdd = {
+                              ...newProject,
+                              id: Date.now(),
+                              progress: 0,
+                            };
+                            setProjectsState([...projectsState, projectToAdd]);
+                            setShowNewProjectModal(false);
+                            setNewProject({
+                              name: '',
+                              priority: 'medium',
+                              deadline: '',
+                              color: '#D4A373'
+                            });
+                          }
+                        }}
+                      >
+                        Create Project
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Project Detail Modal */}
+              {showProjectDetailModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div 
+                    className="rounded-2xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
+                    style={{ background: colors.cardBg, color: colors.text }}
+                  >
+                    {(() => {
+                      const project = projectsState.find(p => p.id === selectedProjectId);
+                      if (!project) return null;
+                      
+                      return (
+                        <>
+                          <div className="flex justify-between items-center p-4 border-b" 
+                            style={{ borderColor: colors.cardHighlight, background: project.color + '30' }}>
+                            <h2 className="font-bold text-lg">{project.name}</h2>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 rounded-full text-xs bg-white bg-opacity-20">
+                                {project.priority}
+                              </span>
+                              <button onClick={() => setShowProjectDetailModal(false)}>
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex-grow overflow-y-auto">
+                            <div className="p-4">
+                              <h3 className="font-semibold mb-2">Progress</h3>
+                              <div className="flex items-center gap-4">
+                                <div className="flex-grow">
+                                  <div 
+                                    className="h-4 rounded-full"
+                                    style={{ 
+                                      background: project.color + '40', 
+                                      width: '100%' 
+                                    }}
+                                  >
+                                    <div 
+                                      className="h-full rounded-full"
+                                      style={{ 
+                                        background: project.color, 
+                                        width: `${project.progress}%` 
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="font-medium">{project.progress}%</div>
+                              </div>
+                              
+                              <div className="mt-4 flex justify-between items-center">
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">Update Progress</label>
+                                  <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="100" 
+                                    value={editProjectProgress}
+                                    onChange={(e) => setEditProjectProgress(parseInt(e.target.value))}
+                                    className="w-full"
+                                  />
+                                </div>
+                                <button
+                                  className="px-3 py-1 rounded-lg text-sm"
+                                  style={{ background: colors.buttonBg, color: colors.buttonText }}
+                                  onClick={() => {
+                                    setProjectsState(projectsState.map(p => 
+                                      p.id === project.id ? {...p, progress: editProjectProgress} : p
+                                    ));
+                                  }}
+                                >
+                                  Update
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="p-4 border-t" style={{ borderColor: colors.cardHighlight }}>
+                              <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-semibold">Related Tasks</h3>
+                                <button
+                                  className="px-2 py-1 rounded-lg text-xs flex items-center gap-1"
+                                  style={{ background: colors.primary, color: colors.buttonText }}
+                                  onClick={() => {
+                                    setShowNewTaskModal(true);
+                                    setShowProjectDetailModal(false);
+                                  }}
+                                >
+                                  <CustomIcon type="add" />
+                                  <span>Add Task</span>
+                                </button>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                {priorityTasksState.filter(task => task.projectId === project.id).map(task => (
+                                  <div 
+                                    key={task.id} 
+                                    className="p-3 rounded-xl flex justify-between items-center"
+                                    style={{ background: colors.cardHighlight }}
+                                  >
+                                    <div>
+                                      <div className="font-medium">{task.name}</div>
+                                      <div className="text-xs opacity-70">Deadline: {task.deadline}</div>
+                                    </div>
+                                    <button
+                                      className="p-1 rounded-full"
+                                      style={{ color: colors.primary }}
+                                      onClick={() => {
+                                        // View task details
+                                        setSelectedTaskId(task.id);
+                                        setShowTaskDetailModal(true);
+                                        setShowProjectDetailModal(false);
+                                      }}
+                                    >
+                                      <MoreHorizontal size={16} />
+                                    </button>
+                                  </div>
+                                ))}
+                                
+                                {priorityTasksState.filter(task => task.projectId === project.id).length === 0 && (
+                                  <div className="text-center p-4 opacity-70">
+                                    <p>No tasks for this project yet.</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-4 border-t flex justify-between" style={{ borderColor: colors.cardHighlight }}>
+                            <button
+                              className="px-4 py-2 rounded-xl text-sm"
+                              style={{ 
+                                background: 'rgba(239, 68, 68, 0.1)', 
+                                color: 'rgb(239, 68, 68)' 
+                              }}
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this project?')) {
+                                  setProjectsState(projectsState.filter(p => p.id !== project.id));
+                                  setShowProjectDetailModal(false);
+                                }
+                              }}
+                            >
+                              Delete Project
+                            </button>
+                            <button
+                              className="px-4 py-2 rounded-xl text-sm"
+                              style={{ background: colors.buttonBg, color: colors.buttonText }}
+                              onClick={() => setShowProjectDetailModal(false)}
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+              
+              {/* New Task Modal */}
+              {showNewTaskModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div 
+                    className="rounded-2xl shadow-lg max-w-md w-full overflow-hidden flex flex-col"
+                    style={{ background: colors.cardBg, color: colors.text }}
+                  >
+                    <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: colors.cardHighlight }}>
+                      <h2 className="font-bold text-lg">New Task</h2>
+                      <button onClick={() => setShowNewTaskModal(false)}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Task Name</label>
+                        <input
+                          type="text"
+                          value={newTask.name}
+                          onChange={(e) => setNewTask({...newTask, name: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Project</label>
+                        <select
+                          value={newTask.projectId}
+                          onChange={(e) => setNewTask({...newTask, projectId: parseInt(e.target.value)})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        >
+                          {projectsState.map(project => (
+                            <option key={project.id} value={project.id}>{project.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Deadline</label>
+                        <input
+                          type="date"
+                          value={newTask.deadline}
+                          onChange={(e) => setNewTask({...newTask, deadline: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Steps</label>
+                        <div className="space-y-2">
+                          {newTask.steps.map((step, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={step.description}
+                                onChange={(e) => {
+                                  const updatedSteps = [...newTask.steps];
+                                  updatedSteps[index].description = e.target.value;
+                                  setNewTask({...newTask, steps: updatedSteps});
+                                }}
+                                className="flex-grow p-2 rounded-lg"
+                                style={{ background: colors.cardHighlight }}
+                              />
+                              <button
+                                onClick={() => {
+                                  setNewTask({
+                                    ...newTask, 
+                                    steps: newTask.steps.filter((_, i) => i !== index)
+                                  });
+                                }}
+                                className="p-1 rounded-full"
+                                style={{ color: colors.primary }}
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              setNewTask({
+                                ...newTask,
+                                steps: [
+                                  ...newTask.steps,
+                                  { id: Date.now(), description: '', completed: false }
+                                ]
+                              });
+                            }}
+                            className="px-3 py-1 rounded-lg text-sm flex items-center gap-1"
+                            style={{ background: colors.cardHighlight, color: colors.primary }}
+                          >
+                            <CustomIcon type="add" />
+                            <span>Add Step</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border-t" style={{ borderColor: colors.cardHighlight }}>
+                      <button
+                        className="w-full py-2 rounded-xl"
+                        style={{ 
+                          background: colors.buttonBg, 
+                          color: colors.buttonText,
+                          opacity: !newTask.name ? 0.5 : 1 
+                        }}
+                        disabled={!newTask.name}
+                        onClick={() => {
+                          if (newTask.name) {
+                            const taskToAdd = {
+                              ...newTask,
+                              id: Date.now(),
+                              steps: newTask.steps.filter(step => step.description.trim() !== '')
+                            };
+                            setPriorityTasksState([...priorityTasksState, taskToAdd]);
+                            setShowNewTaskModal(false);
+                            setNewTask({
+                              name: '',
+                              projectId: selectedProjectId,
+                              deadline: '',
+                              steps: [{ id: Date.now(), description: '', completed: false }]
+                            });
+                          }
+                        }}
+                      >
+                        Create Task
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === "focus" && (
             <div className="h-full flex flex-col overflow-hidden">
-              <h2 className="text-xl font-bold mb-4">Priority Tasks</h2>
-              <div 
-                className="flex-grow overflow-y-auto space-y-4 p-4 rounded-2xl shadow-md"
-                style={{ background: colors.cardBg }}
-              >
-                {priorityTasks.map(task => (
+              <h2 className="text-xl font-bold mb-4">Focus Session</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                {/* Timer Section */}
+                <div 
+                  className="flex flex-col rounded-2xl shadow-md overflow-hidden"
+                  style={{ background: colors.cardBg }}
+                >
                   <div 
-                    key={task.id} 
-                    className="p-4 rounded-xl"
-                    style={{ background: colors.cardHighlight }}
+                    className="p-4 border-b text-center"
+                    style={{ borderColor: colors.cardHighlight }}
                   >
-                    <h3 className="font-semibold mb-2">{task.name}</h3>
-                    <div className="text-sm opacity-70 mb-2">
-                      Deadline: {task.deadline}
-                    </div>
-                    <ul className="space-y-1">
-                      {task.steps.map(step => (
-                        <li 
-                          key={step.id} 
-                          className="flex items-center"
-                        >
-                          <span 
-                            className={`mr-2 w-4 h-4 rounded-full ${step.completed ? 'bg-green-500' : 'border border-gray-400'}`}
-                          />
-                          <span 
-                            className={step.completed ? 'line-through opacity-50' : ''}
-                          >
-                            {step.description}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <h3 className="font-semibold">Pomodoro Timer</h3>
                   </div>
-                ))}
+                  
+                  <div className="flex-grow flex flex-col items-center justify-center p-8">
+                    <div className="mb-6 flex gap-3">
+                      <button
+                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'focus' ? 'font-bold' : 'opacity-70'}`}
+                        style={{ 
+                          background: timerMode === 'focus' ? colors.buttonBg : 'transparent',
+                          color: timerMode === 'focus' ? colors.buttonText : colors.text
+                        }}
+                        onClick={() => {
+                          setTimerMode('focus');
+                          setTimeRemaining(25 * 60);
+                          setTimerActive(false);
+                          if (timerInterval) clearInterval(timerInterval);
+                          setTimerIntervalId(null);
+                        }}
+                      >
+                        Focus (25:00)
+                      </button>
+                      <button
+                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'break' ? 'font-bold' : 'opacity-70'}`}
+                        style={{ 
+                          background: timerMode === 'break' ? colors.buttonBg : 'transparent',
+                          color: timerMode === 'break' ? colors.buttonText : colors.text
+                        }}
+                        onClick={() => {
+                          setTimerMode('break');
+                          setTimeRemaining(5 * 60);
+                          setTimerActive(false);
+                          if (timerInterval) clearInterval(timerInterval);
+                          setTimerIntervalId(null);
+                        }}
+                      >
+                        Break (5:00)
+                      </button>
+                    </div>
+                    
+                    <div 
+                      className="text-6xl font-bold mb-8"
+                      style={{ color: colors.primary }}
+                    >
+                      {Math.floor(timeRemaining / 60).toString().padStart(2, '0')}:
+                      {(timeRemaining % 60).toString().padStart(2, '0')}
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <button
+                        className="px-8 py-3 rounded-xl text-lg"
+                        style={{ 
+                          background: timerActive ? colors.cardHighlight : colors.buttonBg, 
+                          color: timerActive ? colors.text : colors.buttonText 
+                        }}
+                        onClick={() => {
+                          if (timerActive) {
+                            // Stop timer
+                            clearInterval(timerInterval);
+                            setTimerIntervalId(null);
+                            setTimerActive(false);
+                          } else {
+                            // Start timer
+                            setTimerActive(true);
+                            const intervalId = setInterval(() => {
+                              setTimeRemaining(prev => {
+                                if (prev <= 1) {
+                                  // Time's up
+                                  clearInterval(intervalId);
+                                  setTimerActive(false);
+                                  
+                                  // Trigger notification in a real app
+                                  // For now, just play a sound
+                                  try {
+                                    const audio = new Audio('https://cdn.freesound.org/previews/352/352661_5121236-lq.mp3');
+                                    audio.play();
+                                  } catch (e) {
+                                    console.error('Could not play sound:', e);
+                                  }
+                                  
+                                  return 0;
+                                }
+                                return prev - 1;
+                              });
+                            }, 1000);
+                            setTimerIntervalId(intervalId);
+                          }
+                        }}
+                      >
+                        {timerActive ? 'Pause' : 'Start'}
+                      </button>
+                      <button
+                        className="px-4 py-3 rounded-xl text-lg"
+                        style={{ background: colors.cardHighlight }}
+                        onClick={() => {
+                          // Reset timer
+                          clearInterval(timerInterval);
+                          setTimerIntervalId(null);
+                          setTimerActive(false);
+                          setTimeRemaining(timerMode === 'focus' ? 25 * 60 : 5 * 60);
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {timerActive && (
+                    <div 
+                      className="p-4 border-t text-center"
+                      style={{ borderColor: colors.cardHighlight }}
+                    >
+                      <p className="text-sm opacity-80">
+                        {timerMode === 'focus' 
+                          ? 'Focus on your task. Stay present and avoid distractions.' 
+                          : 'Take a break. Stretch, breathe, or get some water.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Current Task Section */}
+                <div className="flex flex-col space-y-4">
+                  <div 
+                    className="flex-grow rounded-2xl shadow-md overflow-hidden"
+                    style={{ background: colors.cardBg }}
+                  >
+                    <div 
+                      className="p-4 border-b flex justify-between items-center"
+                      style={{ borderColor: colors.cardHighlight }}
+                    >
+                      <h3 className="font-semibold">Current Task</h3>
+                      <div className="flex gap-2">
+                        <button
+                          className="p-1 rounded-full"
+                          style={{ color: colors.primary }}
+                          onClick={() => {
+                            // Cycle to previous task
+                            const taskIds = priorityTasksState.map(t => t.id);
+                            const currentIndex = taskIds.indexOf(currentFocusTaskId);
+                            const prevIndex = (currentIndex - 1 + taskIds.length) % taskIds.length;
+                            setCurrentFocusTaskId(taskIds[prevIndex]);
+                          }}
+                        >
+                          <ArrowLeft size={18} />
+                        </button>
+                        <button
+                          className="p-1 rounded-full"
+                          style={{ color: colors.primary }}
+                          onClick={() => {
+                            // Cycle to next task
+                            const taskIds = priorityTasksState.map(t => t.id);
+                            const currentIndex = taskIds.indexOf(currentFocusTaskId);
+                            const nextIndex = (currentIndex + 1) % taskIds.length;
+                            setCurrentFocusTaskId(taskIds[nextIndex]);
+                          }}
+                        >
+                          <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {(() => {
+                      const currentTask = priorityTasksState.find(task => task.id === currentFocusTaskId);
+                      if (!currentTask) {
+                        return (
+                          <div className="p-8 text-center opacity-70">
+                            <p>No tasks available.</p>
+                            <p className="text-sm mt-2">Add tasks in the Projects tab to get started.</p>
+                          </div>
+                        );
+                      }
+                      
+                      const project = projectsState.find(p => p.id === currentTask.projectId);
+                      
+                      return (
+                        <div className="p-4">
+                          <div className="mb-4">
+                            <h4 className="font-bold text-lg">{currentTask.name}</h4>
+                            <div className="flex items-center text-sm opacity-70 mt-1">
+                              <span>Project: </span>
+                              <span 
+                                className="inline-block w-3 h-3 rounded-full mx-1"
+                                style={{ background: project ? project.color : colors.primary }}
+                              />
+                              <span>{project ? project.name : 'Unknown Project'}</span>
+                            </div>
+                            <div className="text-sm opacity-70">
+                              Deadline: {currentTask.deadline}
+                            </div>
+                          </div>
+                          
+                          <div className="mb-4">
+                            <h5 className="font-medium mb-2">Steps</h5>
+                            <ul className="space-y-2">
+                              {currentTask.steps.map(step => (
+                                <li 
+                                  key={step.id} 
+                                  className="flex items-center p-2 rounded-lg"
+                                  style={{ background: colors.cardHighlight }}
+                                >
+                                  <button
+                                    className={`mr-3 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                                      step.completed 
+                                        ? 'bg-green-500 text-white' 
+                                        : 'border border-gray-400'
+                                    }`}
+                                    onClick={() => {
+                                      // Toggle step completion
+                                      setPriorityTasksState(priorityTasksState.map(task => 
+                                        task.id === currentTask.id 
+                                          ? {
+                                              ...task,
+                                              steps: task.steps.map(s => 
+                                                s.id === step.id 
+                                                  ? {...s, completed: !s.completed} 
+                                                  : s
+                                              )
+                                            } 
+                                          : task
+                                      ));
+                                    }}
+                                  >
+                                    {step.completed && <CheckCircle size={14} />}
+                                  </button>
+                                  <span 
+                                    className={step.completed ? 'line-through opacity-50' : ''}
+                                  >
+                                    {step.description}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div className="mt-6 flex justify-between">
+                            <button
+                              className="px-4 py-2 rounded-xl text-sm"
+                              style={{ 
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: 'rgb(239, 68, 68)'
+                              }}
+                              onClick={() => {
+                                if (window.confirm('Mark this task as complete?')) {
+                                  // In a real app, this would move to completed tasks
+                                  // For now, we'll just toggle all steps as completed
+                                  setPriorityTasksState(priorityTasksState.map(task => 
+                                    task.id === currentTask.id 
+                                      ? {
+                                          ...task,
+                                          steps: task.steps.map(s => ({...s, completed: true}))
+                                        } 
+                                      : task
+                                  ));
+                                }
+                              }}
+                            >
+                              Complete Task
+                            </button>
+                            <button
+                              className="px-4 py-2 rounded-xl text-sm"
+                              style={{ background: colors.buttonBg, color: colors.buttonText }}
+                              onClick={() => {
+                                // Start a focus session
+                                setTimerMode('focus');
+                                setTimeRemaining(25 * 60);
+                                setTimerActive(true);
+                                
+                                const intervalId = setInterval(() => {
+                                  setTimeRemaining(prev => {
+                                    if (prev <= 1) {
+                                      clearInterval(intervalId);
+                                      setTimerActive(false);
+                                      return 0;
+                                    }
+                                    return prev - 1;
+                                  });
+                                }, 1000);
+                                setTimerIntervalId(intervalId);
+                              }}
+                            >
+                              Focus on this
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div 
+                    className="rounded-2xl shadow-md"
+                    style={{ background: colors.cardBg }}
+                  >
+                    <div 
+                      className="p-4 border-b"
+                      style={{ borderColor: colors.cardHighlight }}
+                    >
+                      <h3 className="font-semibold">Focus Notes</h3>
+                    </div>
+                    <div className="p-4">
+                      <textarea
+                        placeholder="Take notes during your focus session..."
+                        className="w-full p-3 rounded-xl resize-none"
+                        rows={3}
+                        style={{ background: colors.cardHighlight }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === "admin" && (
             <div className="h-full flex flex-col overflow-hidden">
-              <h2 className="text-xl font-bold mb-4">Admin Tasks</h2>
-              <div 
-                className="flex-grow overflow-y-auto space-y-4 p-4 rounded-2xl shadow-md"
-                style={{ background: colors.cardBg }}
-              >
-                {adminTasks.map(task => (
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Admin Tasks</h2>
+                <button
+                  className="px-3 py-1 rounded-lg text-sm flex items-center gap-1"
+                  style={{ background: colors.buttonBg, color: colors.buttonText }}
+                  onClick={() => setShowNewAdminTaskModal(true)}
+                >
+                  <CustomIcon type="add" />
+                  <span>New Task</span>
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div 
+                  className="p-3 rounded-xl shadow-md flex items-center justify-between"
+                  style={{ background: colors.cardBg }}
+                >
+                  <div>
+                    <h3 className="text-sm opacity-70">Total Tasks</h3>
+                    <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {adminTasksState.length}
+                    </div>
+                  </div>
                   <div 
-                    key={task.id} 
-                    className="p-4 rounded-xl flex justify-between items-center"
+                    className="w-12 h-12 rounded-full flex items-center justify-center"
                     style={{ background: colors.cardHighlight }}
                   >
-                    <div>
-                      <h3 className="font-semibold">{task.description}</h3>
-                      <div className="text-sm opacity-70">
-                        Deadline: {task.deadline}
+                    <CustomIcon type="admin" />
+                  </div>
+                </div>
+                
+                <div 
+                  className="p-3 rounded-xl shadow-md flex items-center justify-between"
+                  style={{ background: colors.cardBg }}
+                >
+                  <div>
+                    <h3 className="text-sm opacity-70">Completed</h3>
+                    <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {adminTasksState.filter(task => task.completed).length}
+                    </div>
+                  </div>
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center"
+                    style={{ background: colors.cardHighlight }}
+                  >
+                    <CheckCircle />
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className="flex-grow overflow-y-auto rounded-2xl shadow-md"
+                style={{ background: colors.cardBg }}
+              >
+                <div 
+                  className="p-4 border-b"
+                  style={{ borderColor: colors.cardHighlight }}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Current Tasks</h3>
+                    <div className="flex gap-2">
+                      <button
+                        className={`px-2 py-1 rounded-lg text-xs`}
+                        style={{ 
+                          background: colors.cardHighlight, 
+                          color: colors.primary 
+                        }}
+                        onClick={() => {
+                          // Sort by deadline
+                          setAdminTasksState([...adminTasksState].sort((a, b) => {
+                            return new Date(a.deadline) - new Date(b.deadline);
+                          }));
+                        }}
+                      >
+                        Sort by Deadline
+                      </button>
+                      <button
+                        className={`px-2 py-1 rounded-lg text-xs`}
+                        style={{ 
+                          background: colors.cardHighlight, 
+                          color: colors.primary 
+                        }}
+                        onClick={() => {
+                          // Toggle completed tasks visibility
+                          setShowCompletedTasks(!showCompletedTasks);
+                        }}
+                      >
+                        {showCompletedTasks ? 'Hide Completed' : 'Show All'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="divide-y" style={{ borderColor: colors.cardHighlight }}>
+                  {adminTasksState
+                    .filter(task => showCompletedTasks || !task.completed)
+                    .map(task => (
+                    <div 
+                      key={task.id} 
+                      className="p-4 flex justify-between items-center"
+                    >
+                      <div className="flex items-center gap-3 flex-grow">
+                        <button
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                            task.completed 
+                              ? 'bg-green-500 text-white' 
+                              : 'border border-gray-400'
+                          }`}
+                          onClick={() => {
+                            // Toggle task completion
+                            setAdminTasksState(adminTasksState.map(t => 
+                              t.id === task.id ? {...t, completed: !t.completed} : t
+                            ));
+                          }}
+                        >
+                          {task.completed && <CheckCircle size={16} />}
+                        </button>
+                        <div className={task.completed ? 'line-through opacity-50' : ''}>
+                          <div className="font-medium">{task.description}</div>
+                          <div className="text-sm opacity-70">
+                            Due: {task.deadline}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <button
+                          className="p-1 rounded-full"
+                          style={{ color: colors.primary }}
+                          onClick={() => {
+                            // Delete task
+                            if (window.confirm('Delete this admin task?')) {
+                              setAdminTasksState(adminTasksState.filter(t => t.id !== task.id));
+                            }
+                          }}
+                        >
+                          <X size={18} />
+                        </button>
                       </div>
                     </div>
-                    <span 
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        task.completed 
-                          ? 'bg-green-500 text-white' 
-                          : 'bg-yellow-500 text-white'
-                      }`}
-                    >
-                      {task.completed ? 'Completed' : 'Pending'}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                  
+                  {adminTasksState.length === 0 && (
+                    <div className="p-8 text-center opacity-70">
+                      <p>No admin tasks yet.</p>
+                      <p className="text-sm mt-2">Add your first admin task to get started.</p>
+                    </div>
+                  )}
+                </div>
               </div>
+              
+              {/* New Admin Task Modal */}
+              {showNewAdminTaskModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div 
+                    className="rounded-2xl shadow-lg max-w-md w-full overflow-hidden flex flex-col"
+                    style={{ background: colors.cardBg, color: colors.text }}
+                  >
+                    <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: colors.cardHighlight }}>
+                      <h2 className="font-bold text-lg">New Admin Task</h2>
+                      <button onClick={() => setShowNewAdminTaskModal(false)}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Task Description</label>
+                        <input
+                          type="text"
+                          value={newAdminTask.description}
+                          onChange={(e) => setNewAdminTask({...newAdminTask, description: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                          placeholder="e.g., Pay studio rent"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Deadline</label>
+                        <input
+                          type="date"
+                          value={newAdminTask.deadline}
+                          onChange={(e) => setNewAdminTask({...newAdminTask, deadline: e.target.value})}
+                          className="w-full p-2 rounded-lg"
+                          style={{ background: colors.cardHighlight }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 border-t" style={{ borderColor: colors.cardHighlight }}>
+                      <button
+                        className="w-full py-2 rounded-xl"
+                        style={{ 
+                          background: colors.buttonBg, 
+                          color: colors.buttonText,
+                          opacity: !newAdminTask.description ? 0.5 : 1 
+                        }}
+                        disabled={!newAdminTask.description}
+                        onClick={() => {
+                          if (newAdminTask.description) {
+                            const taskToAdd = {
+                              ...newAdminTask,
+                              id: Date.now()
+                            };
+                            setAdminTasksState([...adminTasksState, taskToAdd]);
+                            setShowNewAdminTaskModal(false);
+                            setNewAdminTask({
+                              description: '',
+                              deadline: '',
+                              completed: false
+                            });
+                          }
+                        }}
+                      >
+                        Add Task
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === "reflection" && (
             <div className="h-full flex flex-col overflow-hidden">
-              <h2 className="text-xl font-bold mb-4">Reflection</h2>
-              <div 
-                className="flex-grow p-4 rounded-2xl shadow-md"
-                style={{ background: colors.cardBg }}
-              >
+              <h2 className="text-xl font-bold mb-4">Reflection Practice</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                {/* Current Reflection Prompt */}
                 <div 
-                  className="p-4 rounded-xl mb-4"
-                  style={{ background: colors.cardHighlight }}
+                  className="flex flex-col rounded-2xl shadow-md"
+                  style={{ background: colors.cardBg }}
                 >
-                  <h3 className="font-semibold mb-2">Current Prompt</h3>
-                  <p className="mb-4">{reflectionPrompts[currentPromptIndex]}</p>
-                  <textarea
-                    value={reflectionContent}
-                    onChange={(e) => setReflectionContent(e.target.value)}
-                    placeholder="Write your reflection here..."
-                    className="w-full p-3 rounded-xl resize-none"
-                    rows={6}
-                    style={{ background: colors.cardBg }}
-                  />
-                </div>
-                <div className="flex justify-between">
-                  <button
-                    onClick={nextReflectionPrompt}
-                    className="px-4 py-2 rounded-xl"
-                    style={{ 
-                      background: colors.buttonBg, 
-                      color: colors.buttonText 
-                    }}
+                  <div 
+                    className="p-4 border-b"
+                    style={{ borderColor: colors.cardHighlight }}
                   >
-                    Next Prompt
-                  </button>
+                    <h3 className="font-semibold">Current Prompt</h3>
+                  </div>
+                  
+                  <div className="flex-grow p-4 flex flex-col">
+                    <div 
+                      className="p-4 rounded-xl mb-4"
+                      style={{ background: colors.cardHighlight }}
+                    >
+                      <p className="text-lg" style={{ color: colors.primary }}>
+                        {reflectionPrompts[currentPromptIndex]}
+                      </p>
+                    </div>
+                    
+                    <textarea
+                      value={reflectionContent}
+                      onChange={(e) => setReflectionContent(e.target.value)}
+                      placeholder="Write your reflection here..."
+                      className="flex-grow w-full p-3 rounded-xl resize-none mb-4"
+                      style={{ background: colors.cardHighlight }}
+                    />
+                    
+                    <div className="flex justify-between">
+                      <button
+                        onClick={nextReflectionPrompt}
+                        className="px-4 py-2 rounded-xl text-sm"
+                        style={{ 
+                          background: colors.cardHighlight, 
+                          color: colors.primary 
+                        }}
+                      >
+                        <ArrowRight size={16} className="inline mr-1" /> Next Prompt
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          if (reflectionContent.trim()) {
+                            // Save the reflection
+                            setReflectionSaved([
+                              ...reflectionSaved,
+                              {
+                                id: Date.now(),
+                                date: new Date().toISOString(),
+                                prompt: reflectionPrompts[currentPromptIndex],
+                                content: reflectionContent,
+                              }
+                            ]);
+                            
+                            // Clear the input but stay on same prompt
+                            setReflectionContent('');
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl text-sm"
+                        style={{ 
+                          background: colors.buttonBg, 
+                          color: colors.buttonText,
+                          opacity: !reflectionContent.trim() ? 0.5 : 1
+                        }}
+                        disabled={!reflectionContent.trim()}
+                      >
+                        Save Reflection
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Saved Reflections */}
+                <div 
+                  className="flex flex-col rounded-2xl shadow-md"
+                  style={{ background: colors.cardBg }}
+                >
+                  <div 
+                    className="p-4 border-b"
+                    style={{ borderColor: colors.cardHighlight }}
+                  >
+                    <h3 className="font-semibold">Your Reflections</h3>
+                  </div>
+                  
+                  <div className="flex-grow overflow-y-auto">
+                    {reflectionSaved.length > 0 ? (
+                      <div className="divide-y" style={{ borderColor: colors.cardHighlight }}>
+                        {reflectionSaved.map((reflection) => (
+                          <div key={reflection.id} className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div 
+                                className="text-xs px-2 py-1 rounded-full"
+                                style={{ background: colors.cardHighlight }}
+                              >
+                                {new Date(reflection.date).toLocaleDateString()}
+                              </div>
+                              <button
+                                className="p-1 rounded-full text-gray-400 hover:text-gray-600"
+                                onClick={() => {
+                                  if (window.confirm('Delete this reflection?')) {
+                                    setReflectionSaved(reflectionSaved.filter(r => r.id !== reflection.id));
+                                  }
+                                }}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <div 
+                              className="italic text-sm mb-2 opacity-70"
+                            >
+                              {reflection.prompt}
+                            </div>
+                            <p className="text-sm whitespace-pre-line">{reflection.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-70">
+                        <CustomIcon type="reflection" />
+                        <p className="mt-2">No reflections saved yet.</p>
+                        <p className="text-sm mt-1">Your reflections will appear here after you save them.</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {reflectionSaved.length > 0 && (
+                    <div 
+                      className="p-4 border-t"
+                      style={{ borderColor: colors.cardHighlight }}
+                    >
+                      <button
+                        className="w-full py-2 rounded-xl text-sm"
+                        style={{ background: colors.cardHighlight, color: colors.primary }}
+                        onClick={() => {
+                          // This would export reflections in a real app
+                          alert('In a real app, this would export your reflections to a file.');
+                        }}
+                      >
+                        Export Reflections
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1205,6 +2285,180 @@ const MindflowApp = () => {
             colors={colors}
             assistantMessages={assistantMessages}
           />
+        )}
+        
+        {/* Analysis Modal */}
+        {showAnalysisModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div 
+              className="rounded-2xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
+              style={{ background: colors.cardBg, color: colors.text }}
+            >
+              <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: colors.cardHighlight }}>
+                <h2 className="font-bold text-lg">Journal Analysis</h2>
+                <button onClick={() => setShowAnalysisModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-grow overflow-y-auto p-4">
+                {/* Determine if we're on the last day of the month for monthly wrap-up */}
+                {new Date(currentJournalDate.getFullYear(), currentJournalDate.getMonth() + 1, 0).getDate() === currentJournalDate.getDate() ? (
+                  // Monthly wrap-up view
+                  <div>
+                    <div className="text-xl font-semibold mb-4" style={{ color: colors.primary }}>
+                      Monthly Wrap-Up: {currentJournalDate.toLocaleString('default', { month: 'long' })} {currentJournalDate.getFullYear()}
+                    </div>
+                    
+                    {monthlyWrapUps[getCurrentDateKey()] ? (
+                      <>
+                        <div className="mb-4">
+                          <h3 className="font-medium mb-2">Key Themes</h3>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {monthlyWrapUps[getCurrentDateKey()].themes.map((theme, idx) => (
+                              <span 
+                                key={idx} 
+                                className="px-3 py-1 rounded-full text-sm"
+                                style={{ background: colors.primary, color: colors.buttonText }}
+                              >
+                                {theme}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="mb-4 p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                          <h3 className="font-medium mb-2">Monthly Insights</h3>
+                          <p>{monthlyWrapUps[getCurrentDateKey()].insights}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h3 className="font-medium mb-2">Overall Progress</h3>
+                          <div className="h-4 w-full rounded-full overflow-hidden" style={{ background: colors.cardHighlight }}>
+                            <div 
+                              className="h-full rounded-full"
+                              style={{ 
+                                background: colors.primary, 
+                                width: `${monthlyWrapUps[getCurrentDateKey()].progress}%` 
+                              }}
+                            />
+                          </div>
+                          <div className="text-right text-sm mt-1">
+                            {monthlyWrapUps[getCurrentDateKey()].progress}% productive days
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                            <h3 className="font-medium mb-2">Blockers Identified</h3>
+                            <ul className="list-disc pl-5">
+                              {monthlyWrapUps[getCurrentDateKey()].blockers.map((item, idx) => (
+                                <li key={idx} className="mb-1">{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div className="p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                            <h3 className="font-medium mb-2">Recommendations</h3>
+                            <ul className="list-disc pl-5">
+                              {monthlyWrapUps[getCurrentDateKey()].recommendations.map((item, idx) => (
+                                <li key={idx} className="mb-1">{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center p-8 opacity-70">
+                        <p>No monthly wrap-up data available yet.</p>
+                        <p className="text-sm mt-2">Keep journaling throughout the month to generate insights!</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Regular daily analysis view
+                  <div>
+                    <div className="text-lg font-semibold mb-4">
+                      Daily Analysis: {formatDisplayDate(currentJournalDate)}
+                    </div>
+                    
+                    {journalAnalysisState[getCurrentDateKey()] ? (
+                      <>
+                        <div className="mb-4">
+                          <h3 className="font-medium mb-2">Detected Themes</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {journalAnalysisState[getCurrentDateKey()].themes.map((theme, idx) => (
+                              <span 
+                                key={idx} 
+                                className="px-3 py-1 rounded-full text-sm"
+                                style={{ background: colors.primary, color: colors.buttonText }}
+                              >
+                                {theme}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                            <h3 className="font-medium mb-2">Sentiment Analysis</h3>
+                            <p>{journalAnalysisState[getCurrentDateKey()].sentiment}</p>
+                          </div>
+                          
+                          <div className="p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                            <h3 className="font-medium mb-2">Statistics</h3>
+                            <p>{journalAnalysisState[getCurrentDateKey()].wordCount} words written today</p>
+                            <p>{journalEntriesState[getCurrentDateKey()]?.length || 0} entries recorded</p>
+                          </div>
+                        </div>
+                        
+                        {journalAnalysisState[getCurrentDateKey()].actionItems.length > 0 && (
+                          <div className="mb-4">
+                            <h3 className="font-medium mb-2">Suggested Action Items</h3>
+                            <div className="p-3 rounded-xl" style={{ background: colors.cardHighlight }}>
+                              <ul className="list-disc pl-5">
+                                {journalAnalysisState[getCurrentDateKey()].actionItems.map((item, idx) => (
+                                  <li key={idx} className="mb-1">{item}</li>
+                                ))}
+                              </ul>
+                              <div className="mt-3 flex justify-end">
+                                <button
+                                  className="px-3 py-1 rounded-lg text-sm"
+                                  style={{ background: colors.buttonBg, color: colors.buttonText }}
+                                  onClick={() => {
+                                    // Add action items to tasks in a real implementation
+                                    // For now we just close the modal
+                                    setShowAnalysisModal(false);
+                                  }}
+                                >
+                                  Add to Tasks
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center p-8 opacity-70">
+                        <p>No analysis data available for this day.</p>
+                        <p className="text-sm mt-2">Start journaling to generate insights!</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t" style={{ borderColor: colors.cardHighlight }}>
+                <button
+                  className="w-full py-2 rounded-xl"
+                  style={{ background: colors.buttonBg, color: colors.buttonText }}
+                  onClick={() => setShowAnalysisModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
