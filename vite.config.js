@@ -2,18 +2,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    https: true,
-    strictPort: true,
     port: 3000,
-    hmr: {
-      protocol: 'ws',
-      host: '0.0.0.0',
-    },
+    strictPort: true,
     watch: {
       usePolling: true
     },
@@ -21,9 +15,10 @@ export default defineConfig({
     fs: {
       strict: false
     },
-    allowedHosts: [
-      '.replit.dev',
-      'all'
-    ]
+    hmr: {
+      clientPort: 443
+    },
+    // Allow all hosts including Replit domains
+    allowedHosts: 'all'
   }
 })
