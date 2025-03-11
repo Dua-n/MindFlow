@@ -440,7 +440,6 @@ const MindflowApp = () => {
   // Task state
   const [priorityTasksState, setPriorityTasksState] = useState(priorityTasks);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [newTask, setNewTask] = useState({
     name: '',
@@ -463,19 +462,6 @@ const MindflowApp = () => {
     description: '',
     deadline: '',
     completed: false
-  });
-  
-  // Task detail modal state
-  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [monthlyWrapUps, setMonthlyWrapUps] = useState({
-    "2025-02-28": {
-      themes: ["Exhibition planning", "Website development", "Time management"],
-      insights: "February showed consistent focus on the exhibition project, with some anxiety about deadlines. The website redesign gained momentum mid-month. Several opportunities for collaboration emerged.",
-      progress: 65,
-      blockers: ["Grant application process", "Limited studio space"],
-      recommendations: ["Schedule dedicated time for grant writing", "Consider temporary expanded workspace options"]
-    }
   });
 
   // Memoize colors based on dark mode
