@@ -580,6 +580,21 @@ const MindflowApp = () => {
     setNewEntry("");
   }, [newEntry, getCurrentDateKey, journalAnalysis]);
 
+  // Format date to MM/DD/YYYY format
+  const formatDateForDisplay = (dateString) => {
+    // Handle both yyyy-mm-dd and other formats
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      });
+    } catch (e) {
+      return dateString; // Return as-is if formatting fails
+    }
+  };
+  
   // Handle Enter key to save a new journal entry
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -934,7 +949,32 @@ const MindflowApp = () => {
                     className="ml-2 p-1 rounded-full"
                     style={{ color: colors.primary }}
                     title="View Analysis"
-                    onClick={() => setShowAnalysisModal(true)}
+                    onClick={() => {
+                      // Check if this is the last day of the month - if so, generate month end report
+                      const currentDate = new Date(currentJournalDate);
+                      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                      
+                      if (currentDate.getDate() === lastDayOfMonth) {
+                        // Generate/update month-end wrap-up if it doesn't exist
+                        const dateKey = getCurrentDateKey();
+                        if (!monthlyWrapUps[dateKey]) {
+                          const newWrapUp = {
+                            themes: ["Project planning", "Time management", "Creativity"],
+                            insights: "This month showed consistent progress on your key projects. Several opportunities for collaboration emerged.",
+                            progress: Math.floor(Math.random() * 30) + 50, // Random progress between 50-80%
+                            blockers: ["Time constraints", "Resource limitations"],
+                            recommendations: ["Schedule dedicated focus time", "Consider delegating administrative tasks"]
+                          };
+                          
+                          setMonthlyWrapUps({
+                            ...monthlyWrapUps,
+                            [dateKey]: newWrapUp
+                          });
+                        }
+                      }
+                      
+                      setShowAnalysisModal(true);
+                    }}
                   >
                     <CustomIcon type="analysis" />
                   </button>
@@ -1262,8 +1302,18 @@ const MindflowApp = () => {
                               ...newProject,
                               id: Date.now(),
                               progress: 0,
+                              // Format the deadline for display
+                              deadline: newProject.deadline ? formatDateForDisplay(newProject.deadline) : ''
                             };
-                            setProjectsState([...projectsState, projectToAdd]);
+                            
+                            // Add project and sort by priority: high, medium, low
+                            const updatedProjects = [...projectsState, projectToAdd];
+                            const sortedProjects = updatedProjects.sort((a, b) => {
+                              const priorityOrder = { high: 0, medium: 1, low: 2 };
+                              return priorityOrder[a.priority] - priorityOrder[b.priority];
+                            });
+                            
+                            setProjectsState(sortedProjects);
                             setShowNewProjectModal(false);
                             setNewProject({
                               name: '',
@@ -1347,12 +1397,23 @@ const MindflowApp = () => {
                                   className="px-3 py-1 rounded-lg text-sm"
                                   style={{ background: colors.buttonBg, color: colors.buttonText }}
                                   onClick={() => {
+                                    // Update progress and show a confirmation
                                     setProjectsState(projectsState.map(p => 
                                       p.id === project.id ? {...p, progress: editProjectProgress} : p
                                     ));
+                                    
+                                    // Visual confirmation
+                                    const button = document.activeElement;
+                                    if (button) {
+                                      const originalText = button.textContent;
+                                      button.textContent = "Updated!";
+                                      setTimeout(() => {
+                                        button.textContent = originalText;
+                                      }, 1000);
+                                    }
                                   }}
                                 >
-                                  Update
+                                  Save Progress
                                 </button>
                               </div>
                             </div>
@@ -1554,13 +1615,15 @@ const MindflowApp = () => {
                             const taskToAdd = {
                               ...newTask,
                               id: Date.now(),
+                              // Format the deadline consistently
+                              deadline: newTask.deadline ? formatDateForDisplay(newTask.deadline) : '',
                               steps: newTask.steps.filter(step => step.description.trim() !== '')
                             };
                             setPriorityTasksState([...priorityTasksState, taskToAdd]);
                             setShowNewTaskModal(false);
                             setNewTask({
                               name: '',
-                              projectId: selectedProjectId,
+                              projectId: selectedProjectId || projectsState[0]?.id || 1,
                               deadline: '',
                               steps: [{ id: Date.now(), description: '', completed: false }]
                             });
@@ -1592,10 +1655,10 @@ const MindflowApp = () => {
                     <h3 className="font-semibold">Pomodoro Timer</h3>
                   </div>
                   
-                  <div className="flex-grow flex flex-col items-center justify-center p-8">
-                    <div className="mb-6 flex gap-3">
+                  <div className="flex-grow flex flex-col items-center justify-center p-4">
+                    <div className="mb-4 flex gap-3">
                       <button
-                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'focus' ? 'font-bold' : 'opacity-70'}`}
+                        className={`px-3 py-1 rounded-lg text-sm ${timerMode === 'focus' ? 'font-bold' : 'opacity-70'}`}
                         style={{ 
                           background: timerMode === 'focus' ? colors.buttonBg : 'transparent',
                           color: timerMode === 'focus' ? colors.buttonText : colors.text
@@ -1608,10 +1671,10 @@ const MindflowApp = () => {
                           setTimerIntervalId(null);
                         }}
                       >
-                        Focus (25:00)
+                        Focus
                       </button>
                       <button
-                        className={`px-4 py-2 rounded-lg text-sm ${timerMode === 'break' ? 'font-bold' : 'opacity-70'}`}
+                        className={`px-3 py-1 rounded-lg text-sm ${timerMode === 'break' ? 'font-bold' : 'opacity-70'}`}
                         style={{ 
                           background: timerMode === 'break' ? colors.buttonBg : 'transparent',
                           color: timerMode === 'break' ? colors.buttonText : colors.text
@@ -1624,12 +1687,35 @@ const MindflowApp = () => {
                           setTimerIntervalId(null);
                         }}
                       >
-                        Break (5:00)
+                        Break
                       </button>
                     </div>
                     
+                    {timerMode === 'focus' && (
+                      <div className="mb-4 w-full px-4">
+                        <label className="block text-sm mb-1">Focus Duration (minutes):</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="range" 
+                            min="5" 
+                            max="60" 
+                            step="5"
+                            value={Math.floor(timeRemaining / 60)}
+                            onChange={(e) => {
+                              if (!timerActive) {
+                                setTimeRemaining(parseInt(e.target.value) * 60);
+                              }
+                            }}
+                            className="w-full"
+                            disabled={timerActive}
+                          />
+                          <span className="min-w-[40px] text-center">{Math.floor(timeRemaining / 60)}</span>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div 
-                      className="text-6xl font-bold mb-8"
+                      className="text-4xl font-bold mb-4"
                       style={{ color: colors.primary }}
                     >
                       {Math.floor(timeRemaining / 60).toString().padStart(2, '0')}:
@@ -1638,7 +1724,7 @@ const MindflowApp = () => {
                     
                     <div className="flex gap-3">
                       <button
-                        className="px-8 py-3 rounded-xl text-lg"
+                        className="px-6 py-2 rounded-xl"
                         style={{ 
                           background: timerActive ? colors.cardHighlight : colors.buttonBg, 
                           color: timerActive ? colors.text : colors.buttonText 
@@ -1680,7 +1766,7 @@ const MindflowApp = () => {
                         {timerActive ? 'Pause' : 'Start'}
                       </button>
                       <button
-                        className="px-4 py-3 rounded-xl text-lg"
+                        className="px-3 py-2 rounded-xl"
                         style={{ background: colors.cardHighlight }}
                         onClick={() => {
                           // Reset timer
@@ -1697,10 +1783,10 @@ const MindflowApp = () => {
                   
                   {timerActive && (
                     <div 
-                      className="p-4 border-t text-center"
+                      className="p-2 border-t text-center"
                       style={{ borderColor: colors.cardHighlight }}
                     >
-                      <p className="text-sm opacity-80">
+                      <p className="text-xs opacity-80">
                         {timerMode === 'focus' 
                           ? 'Focus on your task. Stay present and avoid distractions.' 
                           : 'Take a break. Stretch, breathe, or get some water.'}
@@ -1720,7 +1806,7 @@ const MindflowApp = () => {
                       style={{ borderColor: colors.cardHighlight }}
                     >
                       <h3 className="font-semibold">Current Task</h3>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <button
                           className="p-1 rounded-full"
                           style={{ color: colors.primary }}
@@ -1734,6 +1820,48 @@ const MindflowApp = () => {
                         >
                           <ArrowLeft size={18} />
                         </button>
+                        
+                        <div className="relative">
+                          <button
+                            className="px-2 py-1 rounded-lg text-sm flex items-center gap-1"
+                            style={{ background: colors.cardHighlight }}
+                            onClick={(e) => {
+                              // Toggle dropdown visibility
+                              const dropdown = e.currentTarget.nextElementSibling;
+                              if (dropdown) {
+                                dropdown.classList.toggle('hidden');
+                              }
+                            }}
+                          >
+                            Select Task
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
+                          </button>
+                          
+                          <div className="absolute right-0 mt-1 z-10 bg-white rounded-lg shadow-lg overflow-hidden hidden" 
+                               style={{ background: colors.cardBg, minWidth: '200px' }}>
+                            {priorityTasksState.map(task => (
+                              <button
+                                key={task.id}
+                                className="w-full text-left px-3 py-2 hover:opacity-80 text-sm"
+                                style={{ 
+                                  background: task.id === currentFocusTaskId ? colors.cardHighlight : 'transparent',
+                                  borderBottom: `1px solid ${colors.cardHighlight}`
+                                }}
+                                onClick={() => {
+                                  setCurrentFocusTaskId(task.id);
+                                  // Hide dropdown
+                                  const dropdown = document.activeElement?.parentElement?.querySelector('div[class*="absolute"]');
+                                  if (dropdown) dropdown.classList.add('hidden');
+                                }}
+                              >
+                                {task.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
                         <button
                           className="p-1 rounded-full"
                           style={{ color: colors.primary }}
@@ -2105,7 +2233,8 @@ const MindflowApp = () => {
                           if (newAdminTask.description) {
                             const taskToAdd = {
                               ...newAdminTask,
-                              id: Date.now()
+                              id: Date.now(),
+                              deadline: newAdminTask.deadline ? formatDateForDisplay(newAdminTask.deadline) : ''
                             };
                             setAdminTasksState([...adminTasksState, taskToAdd]);
                             setShowNewAdminTaskModal(false);
